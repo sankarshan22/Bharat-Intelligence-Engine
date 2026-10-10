@@ -1,0 +1,1 @@
+# Geopolitics MCP package init

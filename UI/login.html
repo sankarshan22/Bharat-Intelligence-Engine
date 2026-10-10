@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="icon" href="data:,">
+  <title>Global Ontology Engine — Login</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0d0d0f;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 420px;
+      padding: 20px;
+    }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    .logo h1 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #a0a8ff;
+      letter-spacing: 0.5px;
+    }
+
+    .logo p {
+      font-size: 0.8rem;
+      color: #555;
+      margin-top: 6px;
+    }
+
+    .card {
+      background: #16161a;
+      border: 1px solid #2a2a35;
+      border-radius: 14px;
+      padding: 32px;
+    }
+
+    .tabs {
+      display: flex;
+      margin-bottom: 28px;
+      border-bottom: 1px solid #2a2a35;
+    }
+
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 10px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: #555;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      color: #a0a8ff;
+      border-bottom: 2px solid #a0a8ff;
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: #888;
+      margin-bottom: 6px;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      background: #0d0d0f;
+      border: 1px solid #2a2a35;
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #e0e0e0;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border 0.2s;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      border-color: #a0a8ff;
+    }
+
+    .remember {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 22px;
+      font-size: 0.82rem;
+      color: #888;
+      cursor: pointer;
+    }
+
+    .remember input {
+      accent-color: #a0a8ff;
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 11px;
+      background: #7c83fd;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn:hover { background: #9198ff; }
+    .btn:disabled { background: #3a3a4a; cursor: not-allowed; }
+
+    .error {
+      margin-top: 14px;
+      padding: 10px 14px;
+      background: #2a1a1a;
+      border: 1px solid #5a2a2a;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      color: #ff8080;
+      display: none;
+    }
+
+    .error.show { display: block; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <h1>Global Ontology Engine</h1>
+      <p>Multi-Agent Intelligence System</p>
+    </div>
+
+    <div class="card">
+      <div class="tabs">
+        <div class="tab active" id="tab-login" onclick="switchTab('login')">Login</div>
+        <div class="tab" id="tab-signup" onclick="switchTab('signup')">Sign Up</div>
+      </div>
+
+      <!-- Login Form -->
+      <div id="form-login">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="login-username" placeholder="Enter username" />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="login-password" placeholder="Enter password" />
+        </div>
+        <label class="remember">
+          <input type="checkbox" id="login-remember" /> Remember me
+        </label>
+        <button class="btn" id="login-btn" onclick="handleLogin()">Login</button>
+        <div class="error" id="login-error"></div>
+      </div>
+
+      <!-- Signup Form -->
+      <div id="form-signup" style="display:none">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="signup-username" placeholder="Choose a username" />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="signup-password" placeholder="Choose a password" />
+        </div>
+        <div class="form-group">
+          <label>Confirm Password</label>
+          <input type="password" id="signup-confirm" placeholder="Confirm password" />
+        </div>
+        <label class="remember">
+          <input type="checkbox" id="signup-remember" /> Remember me
+        </label>
+        <button class="btn" id="signup-btn" onclick="handleSignup()">Create Account</button>
+        <div class="error" id="signup-error"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/socket.io.min.js"></script>
+  <script>
+    const socket = io();
+
+    function switchTab(tab) {
+      document.getElementById("form-login").style.display = tab === "login" ? "block" : "none";
+      document.getElementById("form-signup").style.display = tab === "signup" ? "block" : "none";
+      document.getElementById("tab-login").classList.toggle("active", tab === "login");
+      document.getElementById("tab-signup").classList.toggle("active", tab === "signup");
+    }
+
+    function showError(id, msg) {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.classList.add("show");
+    }
+
+    function clearError(id) {
+      document.getElementById(id).classList.remove("show");
+    }
+
+    function saveToken(token, remember) {
+      if (remember) {
+        localStorage.setItem("goe_token", token);
+      } else {
+        sessionStorage.setItem("goe_token", token);
+      }
+    }
+
+    function handleLogin() {
+      clearError("login-error");
+      const username = document.getElementById("login-username").value.trim();
+      const password = document.getElementById("login-password").value;
+      const remember = document.getElementById("login-remember").checked;
+
+      if (!username || !password) {
+        showError("login-error", "Please fill in all fields.");
+        return;
+      }
+
+      document.getElementById("login-btn").disabled = true;
+      socket.emit("login", { username, password, remember });
+    }
+
+    function handleSignup() {
+      clearError("signup-error");
+      const username = document.getElementById("signup-username").value.trim();
+      const password = document.getElementById("signup-password").value;
+      const confirm = document.getElementById("signup-confirm").value;
+      const remember = document.getElementById("signup-remember").checked;
+
+      if (!username || !password || !confirm) {
+        showError("signup-error", "Please fill in all fields.");
+        return;
+      }
+      if (password !== confirm) {
+        showError("signup-error", "Passwords do not match.");
+        return;
+      }
+      if (password.length < 6) {
+        showError("signup-error", "Password must be at least 6 characters.");
+        return;
+      }
+
+      document.getElementById("signup-btn").disabled = true;
+      socket.emit("signup", { username, password, remember });
+    }
+
+    socket.on("auth_success", (d) => {
+      saveToken(d.token, d.remember);
+      window.location.href = "/app";
+    });
+
+    socket.on("auth_error", (d) => {
+      document.getElementById("login-btn").disabled = false;
+      document.getElementById("signup-btn").disabled = false;
+      const active = document.getElementById("tab-login").classList.contains("active");
+      showError(active ? "login-error" : "signup-error", d.error);
+    });
+
+    // Allow Enter key to submit
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      const active = document.getElementById("tab-login").classList.contains("active");
+      if (active) handleLogin();
+      else handleSignup();
+    });
+  </script>
+</body>
+</html>

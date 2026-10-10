@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" href="data:,">
+  <script src="/static/js/socket.io.min.js"></script>
+  <script src="/static/js/vis-network.min.js"></script>
+  <script src="/static/js/marked.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+
+    header {
+      background: #1a1d2e;
+      padding: 14px 24px;
+      border-bottom: 1px solid #2a2d3e;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 18px; color: #7c83fd; font-weight: 600; }
+    header span { font-size: 12px; color: #666; }
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .header-username { font-size: 12px; color: #888; }
+    .logout-btn {
+      background: #2a2d3e;
+      border: none;
+      color: #ff6b6b;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .logout-btn:hover { background: #3a2d3e; }
+
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 220px;
+      background: #12152a;
+      border-right: 1px solid #2a2d3e;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .sidebar-header { padding: 12px; border-bottom: 1px solid #2a2d3e; }
+    .new-chat-btn {
+      width: 100%;
+      background: #7c83fd;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 0;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .new-chat-btn:hover { background: #6a71f0; }
+    .chat-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .chat-item {
+      padding: 9px 10px;
+      border-radius: 7px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background 0.15s;
+      position: relative;
+    }
+    .chat-item:hover { background: #1e2130; }
+    .chat-item:hover .chat-item-actions,
+    .chat-item.active .chat-item-actions { display: flex; }
+    .chat-item.active { background: #1e2130; border-color: #7c83fd44; }
+    .chat-item-row { display: flex; align-items: center; justify-content: space-between; }
+    .chat-item-title {
+      font-size: 12px;
+      color: #c0c0c0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+    }
+    .chat-item.active .chat-item-title { color: #e0e0e0; }
+    .chat-item-time { font-size: 10px; color: #444; margin-top: 2px; }
+    .chat-item-actions {
+      display: none;
+      gap: 4px;
+      flex-shrink: 0;
+      margin-left: 4px;
+    }
+    .chat-action-btn {
+      background: none;
+      border: none;
+      color: #666;
+      cursor: pointer;
+      font-size: 12px;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+    .chat-action-btn:hover { color: #a0a8ff; background: #2a2d3e; }
+    .chat-action-btn.delete:hover { color: #ff6b6b; background: #2a1a1a; }
+
+    /* ── Chat Panel ── */
+    .chat-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #2a2d3e;
+      min-width: 0;
+      position: relative;
+    }
+
+    /* ── Landing ── */
+    #landing {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 24px;
+      overflow-y: auto;
+      gap: 28px;
+    }
+    .landing-welcome { text-align: center; }
+    .landing-welcome h2 { font-size: 1.4rem; color: #e0e0e0; font-weight: 600; }
+    .landing-welcome p { font-size: 0.85rem; color: #555; margin-top: 6px; }
+
+    .landing-stats {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+      max-width: 700px;
+    }
+    .landing-stat-card {
+      background: #16161a;
+      border: 1px solid #2a2a35;
+      border-radius: 12px;
+      padding: 16px 20px;
+      min-width: 110px;
+      flex: 1;
+    }
+    .landing-stat-value { font-size: 1.6rem; font-weight: 700; color: #a0a8ff; }
+    .landing-stat-label { font-size: 0.75rem; color: #555; margin-top: 2px; }
+    .landing-health-bar {
+      height: 4px;
+      background: #2a2a35;
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+    .landing-health-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+    .landing-domain-card { min-width: 160px; }
+    .landing-domain-item {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: #888;
+      padding: 2px 0;
+    }
+    .landing-domain-name { color: #c0c0c0; }
+    .landing-domain-count {
+      background: #2a2d3e;
+      color: #7c83fd;
+      padding: 0 6px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+    }
+    .landing-domain-empty { font-size: 0.8rem; color: #444; }
+
+    .landing-queries {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      max-width: 600px;
+    }
+    .landing-query-btn {
+      background: #1e2130;
+      border: 1px solid #2a2d3e;
+      color: #c0c0c0;
+      border-radius: 20px;
+      padding: 8px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .landing-query-btn:hover { border-color: #7c83fd; color: #a0a8ff; background: #1a1d2e; }
+
+    .landing-start-btn {
+      background: #7c83fd;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 11px 28px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .landing-start-btn:hover { background: #9198ff; }
+
+    /* ── Messages ── */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .message { max-width: 85%; }
+    .message.user { align-self: flex-end; }
+    .message.agent { align-self: flex-start; }
+    .message .bubble {
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .message.user .bubble { background: #7c83fd; color: #fff; border-bottom-right-radius: 2px; }
+    .message.agent .bubble { background: #1e2130; border: 1px solid #2a2d3e; border-bottom-left-radius: 2px; }
+    .message.agent .bubble table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+    .message.agent .bubble th, .message.agent .bubble td { border: 1px solid #3a3d4e; padding: 6px 10px; font-size: 13px; }
+    .message.agent .bubble th { background: #2a2d3e; }
+    .message.agent .bubble h2, .message.agent .bubble h3 { color: #7c83fd; margin: 10px 0 4px; }
+    .message.agent .bubble ul, .message.agent .bubble ol { padding-left: 18px; }
+    .message.agent .bubble code { background: #2a2d3e; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+    .meta { font-size: 11px; color: #555; margin-top: 4px; padding: 0 4px; }
+    /* ── Compacting bubble ── */
+    .compacting-bubble { min-width: 220px; }
+    .compacting-label { font-size: 13px; color: #a0a8ff; margin-bottom: 8px; }
+    .compacting-bar-track {
+      height: 6px;
+      background: #2a2d3e;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 4px;
+    }
+    .compacting-bar-fill {
+      height: 100%;
+      background: #7c83fd;
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+    .compacting-pct { font-size: 11px; color: #555; }
+
+    /* ── Context bar ── */
+    .context-bar-wrap {
+      padding: 6px 20px;
+      background: #1a1d2e;
+      border-top: 1px solid #2a2d3e;
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+    .context-bar-track {
+      flex: 1;
+      height: 4px;
+      background: #2a2d3e;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .context-bar-fill {
+      height: 100%;
+      background: #4caf50;
+      border-radius: 2px;
+      transition: width 0.4s ease, background 0.4s ease;
+      width: 0%;
+    }
+    .context-bar-pct { font-size: 11px; color: #555; white-space: nowrap; }
+
+
+    .status-bar {
+      padding: 8px 20px;
+      font-size: 12px;
+      color: #7c83fd;
+      min-height: 28px;
+      border-top: 1px solid #2a2d3e;
+    }
+    .input-area {
+      display: flex;
+      padding: 16px 20px;
+      gap: 10px;
+      border-top: 1px solid #2a2d3e;
+      background: #1a1d2e;
+    }
+    .input-area textarea {
+      flex: 1;
+      background: #0f1117;
+      border: 1px solid #2a2d3e;
+      border-radius: 8px;
+      color: #e0e0e0;
+      padding: 10px 14px;
+      font-size: 14px;
+      resize: none;
+      outline: none;
+      height: 48px;
+      line-height: 1.5;
+    }
+    .input-area textarea:focus { border-color: #7c83fd; }
+    .input-area button {
+      background: #7c83fd;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0 20px;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .input-area button:hover { background: #6a71f0; }
+    .input-area button:disabled { background: #333; cursor: not-allowed; }
+
+    /* ── KG Panel ── */
+    .kg-panel {
+      width: 420px;
+      display: flex;
+      flex-direction: column;
+      background: #0f1117;
+      position: relative;
+    }
+    .kg-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid #2a2d3e;
+      font-size: 13px;
+      color: #7c83fd;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .kg-stats { font-size: 11px; color: #555; font-weight: normal; }
+    #kg-container { flex: 1; min-height: 0; height: 100%; }
+    .kg-panel.fullscreen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 1000;
+      background: #0f1117;
+    }
+    .kg-panel.fullscreen #kg-container { height: calc(100vh - 48px); }
+    .kg-btn {
+      background: #2a2d3e;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 12px;
+    }
+
+    /* ── Entity Card ── */
+    .entity-card {
+      position: fixed;
+      width: 300px;
+      background: #1a1d2e;
+      border: 1px solid #7c83fd;
+      border-radius: 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      font-size: 13px;
+      display: none;
+      z-index: 2000;
+      top: 120px;
+      right: 440px;
+      overflow: hidden;
+    }
+    .entity-card.visible { display: block; }
+    .entity-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: #12152a;
+      cursor: grab;
+      border-bottom: 1px solid #2a2d3e;
+      user-select: none;
+    }
+    .entity-card-header:active { cursor: grabbing; }
+    .entity-card-header h3 { color: #7c83fd; font-size: 14px; }
+    .entity-card-close { background: none; border: none; color: #ff6b6b; cursor: pointer; font-size: 16px; line-height: 1; }
+    .entity-card-body { padding: 12px 14px; max-height: 300px; overflow-y: auto; }
+    .entity-type-badge { display: inline-block; background: #2a2d3e; color: #aaa; font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-bottom: 10px; }
+    .entity-props { font-size: 12px; color: #888; margin-bottom: 10px; }
+    .entity-props span { color: #c0c0c0; }
+    .rel-section-title { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .rel-item { padding: 6px 8px; margin-bottom: 4px; background: #0f1117; border-radius: 6px; border-left: 2px solid #7c83fd; font-size: 12px; color: #c0c0c0; line-height: 1.6; }
+    .rel-source { color: #7c83fd; font-weight: 600; }
+    .rel-relation { color: #888; font-style: italic; }
+    .rel-target { color: #7c83fd; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🌐 Global Ontology Engine</h1>
+  <span>Multi-domain AI Intelligence System</span>
+  <div class="header-right">
+    <span class="header-username" id="header-username"></span>
+    <button class="kg-btn" onclick="goHome()" style="color:#a0a8ff; padding:4px 12px; font-size:13px;">🏠 Home</button>
+    <button class="kg-btn" onclick="toggleKG()" id="kg-toggle-btn" style="color:#7c83fd; padding:4px 12px; font-size:13px;">🔵 Knowledge Graph</button>
+    <button class="logout-btn" onclick="doLogout()">Logout</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <button class="new-chat-btn" onclick="newChat()">+ New Chat</button>
+    </div>
+    <div class="chat-list" id="chat-list"></div>
+  </div>
+
+  <!-- Chat Panel -->
+  <div class="chat-panel">
+
+    <!-- Landing -->
+    <div id="landing" style="display:flex;">
+      <div class="landing-welcome">
+        <h2>Welcome back, <span id="landing-username">...</span> 👋</h2>
+        <p>Your intelligence dashboard — here's where your knowledge graph stands.</p>
+      </div>
+      <div class="landing-stats" id="landing-stats"></div>
+      <div class="landing-queries" id="landing-queries"></div>
+      <button class="landing-start-btn" onclick="newChat()">+ Start New Chat</button>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages" id="messages"></div>
+
+    <div class="status-bar" id="status" style="display:none;"></div>
+    <div class="context-bar-wrap" id="context-bar-wrap" style="display:none;">
+      <div class="context-bar-track">
+        <div class="context-bar-fill" id="context-fill"></div>
+      </div>
+      <span class="context-bar-pct" id="context-pct">Context: 0%</span>
+    </div>
+    <div class="input-area" id="input-area" style="display:none;">
+      <textarea id="input" placeholder="Ask about climate, tech, geopolitics,economics..." rows="1"></textarea>
+      <button id="send-btn" onclick="handleSendClick()">Send</button>
+    </div>
+  </div>
+
+  <!-- KG Panel -->
+  <div class="kg-panel">
+    <div class="kg-header">
+      Knowledge Graph
+      <div style="display:flex; gap:8px; align-items:center;">
+        <span class="kg-stats" id="kg-stats">0 entities · 0 relationships</span>
+        <button class="kg-btn" onclick="toggleFullscreen()" id="fs-btn" style="color:#7c83fd;">⛶ Full</button>
+        <button class="kg-btn" onclick="closeKG()" style="color:#ff6b6b;">✕</button>
+      </div>
+    </div>
+    <div id="kg-container"></div>
+  </div>
+</div>
+
+<!-- Draggable Entity Detail Card -->
+<div class="entity-card" id="entity-card">
+  <div class="entity-card-header" id="entity-card-header">
+    <h3 id="card-title">Entity</h3>
+    <button class="entity-card-close" onclick="closeCard()">✕</button>
+  </div>
+  <div class="entity-card-body">
+    <div class="entity-type-badge" id="card-type"></div>
+    <div class="entity-props" id="card-props"></div>
+    <div class="rel-section-title">Relationships</div>
+    <div id="card-rels"></div>
+  </div>
+</div>
+
+<script src="/static/js/ui.js"></script>
+<script src="/static/js/socket_client.js"></script>
+
+</body>
+</html>

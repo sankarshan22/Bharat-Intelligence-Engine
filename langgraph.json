@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "agent": "./agent/ontology_graph.py:build_graph"
+  },
+  "env": ".env"
+}

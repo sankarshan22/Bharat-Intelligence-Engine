@@ -1,0 +1,49 @@
+# Environment Variables
+.env
+.env.*
+*.env
+**/.env
+mcp_servers/**/.env
+!.env.example
+
+# Virtual Environments
+venv/
+env/
+.venv/
+jam_env/
+jamba/
+ENV/
+env.bak/
+venv.bak/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Local database and session persistence
+users.json
+chat_data.json
+ltm_memories.json
+
+# Logs and runtime artifacts
+logs/
+*.log
+.langgraph_api/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+temp.ipynb
+test/temp.ipynb
+
+# IDE / Editor folders
+.vscode/
+.idea/
+*.swp
+*.swo
